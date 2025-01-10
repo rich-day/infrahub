@@ -18,6 +18,10 @@ from infrahub.message_bus.operations import execute_message
 from infrahub.message_bus.types import MessageTTL
 from infrahub.services.adapters.message_bus import InfrahubMessageBus
 from infrahub.worker import WORKER_IDENTITY
+from opentelemetry import trace
+from opentelemetry.trace import SpanKind, Status, StatusCode
+import time
+
 
 if TYPE_CHECKING:
     from aio_pika.abc import (
@@ -126,12 +130,48 @@ class RabbitMQMessageBus(InfrahubMessageBus):
             self.service.log.error("Invalid message received", message=f"{message!r}")
 
     async def on_message(self, message: AbstractIncomingMessage) -> None:
-        async with message.process():
-            clear_log_context()
-            if message.routing_key in messages.MESSAGE_MAP:
-                await execute_message(routing_key=message.routing_key, message_body=message.body, service=self.service)
-            else:
-                self.service.log.error("Invalid message received", message=f"{message!r}")
+        with trace.get_tracer(__name__).start_as_current_span(
+            "rabbitmq.consume",
+            kind=SpanKind.CONSUMER,
+            attributes={
+                "messaging.system": "rabbitmq",
+                "messaging.destination": message.routing_key,
+                "messaging.operation": "consume", 
+                "messaging.message_id": message.correlation_id,
+                "messaging.rabbitmq.routing_key": message.routing_key,
+                "net.peer.name": self.settings.address,
+                "net.peer.port": self.settings.service_port,
+                "span.kind": "consumer",
+                "peer.service": "message-queue",
+                "service.name": "infrahub",
+                "span.status": "started"
+            }
+        ) as span:
+            try:
+                start_time = time.time()
+                async with message.process():
+                    clear_log_context()
+                    if message.routing_key in messages.MESSAGE_MAP:
+                        await execute_message(routing_key=message.routing_key, message_body=message.body, service=self.service)
+                    else:
+                        span.set_attribute("error.type", "InvalidRoutingKey")
+                        self.service.log.error("Invalid message received", message=f"{message!r}")
+                
+                duration = time.time() - start_time
+                span.set_attribute("messaging.duration_ms", duration * 1000)
+                span.set_attribute("messaging.routing_key_valid", message.routing_key in messages.MESSAGE_MAP)
+                
+                if duration > 0.5:
+                    span.set_attribute("span.status", "slow")
+                else:
+                    span.set_attribute("span.status", "success")
+                
+            except Exception as e:
+                span.record_exception(e)
+                span.set_attribute("error.type", e.__class__.__name__)
+                span.set_attribute("error.message", str(e))
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                raise
 
     async def on_reconnect(
         self,
@@ -211,14 +251,50 @@ class RabbitMQMessageBus(InfrahubMessageBus):
     async def publish(
         self, message: InfrahubMessage, routing_key: str, delay: Optional[MessageTTL] = None, is_retry: bool = False
     ) -> None:
-        for enricher in self.message_enrichers:
-            await enricher(message)
-        message.assign_priority(priority=messages.message_priority(routing_key=routing_key))
-        if delay:
-            message.assign_header(key="delay", value=delay.value)
-            await self.delayed_exchange.publish(self.format_message(message=message), routing_key=routing_key)
-        else:
-            await self.exchange.publish(self.format_message(message=message), routing_key=routing_key)
+        with trace.get_tracer(__name__).start_as_current_span(
+            "rabbitmq.publish",
+            kind=SpanKind.PRODUCER,
+            attributes={
+                "messaging.system": "rabbitmq",
+                "messaging.destination": routing_key,
+                "messaging.operation": "publish",
+                "messaging.message_id": message.meta.correlation_id,
+                "messaging.rabbitmq.routing_key": routing_key,
+                "span.kind": "producer",
+                "peer.service": "message-queue",
+                "service.name": "infrahub",
+                "span.status": "started",
+                "messaging.delayed": bool(delay),
+                "messaging.is_retry": is_retry
+            }
+        ) as span:
+            try:
+                start_time = time.time()
+                
+                for enricher in self.message_enrichers:
+                    await enricher(message)
+                message.assign_priority(priority=messages.message_priority(routing_key=routing_key))
+                
+                if delay:
+                    message.assign_header(key="delay", value=delay.value)
+                    await self.delayed_exchange.publish(self.format_message(message=message), routing_key=routing_key)
+                else:
+                    await self.exchange.publish(self.format_message(message=message), routing_key=routing_key)
+                
+                duration = time.time() - start_time
+                span.set_attribute("messaging.duration_ms", duration * 1000)
+                
+                if duration > 0.1:
+                    span.set_attribute("span.status", "slow")
+                else:
+                    span.set_attribute("span.status", "success")
+                    
+            except Exception as e:
+                span.record_exception(e)
+                span.set_attribute("error.type", e.__class__.__name__)
+                span.set_attribute("error.message", str(e))
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                raise
 
     async def reply(self, message: InfrahubMessage, routing_key: str) -> None:
         await self.channel.default_exchange.publish(self.format_message(message=message), routing_key=routing_key)

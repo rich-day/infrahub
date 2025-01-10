@@ -322,7 +322,15 @@ class InfrahubDatabase:
         context: dict[str, str] | None = None,
         type: QueryType | None = None,  # pylint: disable=redefined-builtin
     ) -> tuple[list[Record], dict[str, Any]]:
-        with trace.get_tracer(__name__).start_as_current_span("execute_db_query_with_metadata") as span:
+        with trace.get_tracer(__name__).start_as_current_span("execute_db_query_with_metadata", 
+            kind=trace.SpanKind.CLIENT, 
+            attributes={
+                "db.system": "neo4j",
+                "db.name": "database",
+                "peer.service": "neo4j",
+                "service.name": "infrahub"
+            }
+        ) as span:
             span.set_attribute("query", query)
             if name:
                 span.set_attribute("query_name", name)
