@@ -1,0 +1,25 @@
+---
+title: Release {{ version }}
+---
+<table>
+  <tbody>
+    <tr>
+      <th>Release Number</th>
+      <td>{{ version }}</td>
+    </tr>
+    <tr>
+      <th>Release Date</th>
+      <td>{{ today }}</td>
+    </tr>
+    <tr>
+      <th>Release Codename</th>
+      <td>{{ codename }}</td>
+    </tr>
+    <tr>
+      <th>Tag</th>
+      <td>[infrahub-v{{ version }}](https://github.com/opsmill/infrahub/releases/tag/infrahub-v{{ version }})</td>
+    </tr>
+  </tbody>
+</table>
+
+{{ release_notes }}
