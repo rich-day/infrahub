@@ -1,0 +1,174 @@
+---
+apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ template "common.names.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: prefect-server
+    prefect-version: {{ .Chart.AppVersion }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  revisionHistoryLimit: {{ .Values.prefect-server.server.revisionHistoryLimit }}
+  replicas: {{ .Values.prefect-server.server.replicaCount }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: prefect-server
+  template:
+    metadata:
+      {{- if .Values.prefect-server.server.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: server
+        prefect-version: {{ .Chart.AppVersion }}
+        {{- if .Values.prefect-server.server.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.prefect-server.prefect.image.pullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.prefect-server.prefect.image.pullSecrets }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      serviceAccountName: {{ template "server.serviceAccountName" . }}
+      {{- if .Values.prefect-server.server.affinity }}
+      affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.prefect-server.server.affinity "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.prefect-server.server.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" ( dict "value" .Values.prefect-server.server.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.prefect-server.server.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.tolerations "context" .) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.prefect-server.server.podSecurityContext }}
+      securityContext: {{- .Values.prefect-server.server.podSecurityContext | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if .Values.prefect-server.server.priorityClassName }}
+      priorityClassName: {{ .Values.prefect-server.server.priorityClassName }}
+      {{- end }}
+      containers:
+        - name: prefect-server
+          image: "{{ .Values.prefect-server.server.image.repository }}:{{ .Values.prefect-server.server.image.prefectTag }}"
+          imagePullPolicy: {{ .Values.prefect-server.server.image.pullPolicy }}
+          command:
+            - /usr/bin/tini
+            - -g
+            - --
+            - /opt/prefect/entrypoint.sh
+          args:
+            - prefect
+            - server
+            - start
+            {{- if .Values.backgroundServices.runAsSeparateDeployment }}
+            - --no-services
+            {{- end }}
+            - --port
+            - {{ .Values.service.targetPort | quote }}
+            {{- range .Values.server.extraArgs }}
+            - {{ . | toString }}
+            {{- end }}
+          workingDir: /home/prefect
+          ports:
+            - containerPort: {{ int .Values.prefect-server.service.targetPort }}
+          env:
+            - name: HOME
+              value: /home/prefect
+            - name: PREFECT_API_URL
+              value: {{ .Values.prefect-server.server.prefectApiUrl | quote }}
+            - name: PREFECT_DEBUG_MODE
+              value: {{ .Values.prefect-server.server.debug | quote }}
+            - name: PREFECT_LOGGING_SERVER_LEVEL
+              value: {{ .Values.prefect-server.server.loggingLevel | quote }}
+            - name: PREFECT_SERVER_API_HOST
+              value: {{ .Values.prefect-server.server.prefectApiHost | quote }}
+            - name: PREFECT_SERVER_API_PORT
+              value: {{ .Values.prefect-server.service.targetPort | quote }}
+            - name: PREFECT_UI_ENABLED
+              value: {{ .Values.prefect-server.server.uiConfig.enabled | quote }}
+            {{- if .Values.prefect-server.server.uiConfig.prefectUiApiUrl }}
+            - name: PREFECT_UI_API_URL
+              value: {{ .Values.prefect-server.server.uiConfig.prefectUiApiUrl | quote }}
+            {{- end }}
+            {{- if .Values.prefect-server.server.uiConfig.prefectUiUrl }}
+            - name: PREFECT_UI_URL
+              value: {{ .Values.prefect-server.server.uiConfig.prefectUiUrl | quote }}
+            {{- end }}
+            - name: PREFECT_UI_STATIC_DIRECTORY
+              value: {{ .Values.prefect-server.server.uiConfig.prefectUiStaticDirectory | quote }}
+            - name: PREFECT_API_DATABASE_CONNECTION_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "prefect-server.server.postgres-string-secret-name" . }}
+                  key: connection-string
+            {{- if .Values.prefect-server.server.basicAuth.enabled }}
+            - name: PREFECT_SERVER_API_AUTH_STRING
+            {{- if .Values.prefect-server.server.basicAuth.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.prefect-server.server.basicAuth.existingSecret }}
+                  key: auth-string
+            {{- else }}
+              value: {{ .Values.prefect-server.server.basicAuth.authString | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.prefect-server.server.env }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.env "context" $) | nindent 12 }}
+            {{- end }}
+          envFrom:
+            {{- if .Values.prefect-server.server.extraEnvVarsCM }}
+            - configMapRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.extraEnvVarsCM "context" $) }}
+            {{- end }}
+            {{- if .Values.prefect-server.server.extraEnvVarsSecret }}
+            - secretRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.extraEnvVarsSecret "context" $) }}
+            {{- end }}
+          {{- if .Values.prefect-server.server.resources }}
+          resources: {{- toYaml .Values.prefect-server.server.resources | nindent 12 }}
+          {{- end }}
+          {{- with .Values.prefect-server.server.containerSecurityContext }}
+          securityContext: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.prefect-server.server.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.prefect-server.service.targetPort }}
+          {{- toYaml .Values.prefect-server.server.livenessProbe.config | nindent 12 }}
+          {{- end }}
+          {{- if .Values.prefect-server.server.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: {{ .Values.prefect-server.service.targetPort }}
+          {{- toYaml .Values.prefect-server.server.readinessProbe.config | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - mountPath: /home/prefect
+              name: scratch
+              subPathExpr: home
+            - mountPath: /tmp
+              name: scratch
+              subPathExpr: tmp
+            - mountPath: {{ .Values.prefect-server.server.uiConfig.prefectUiStaticDirectory }}
+              name: scratch
+              subPathExpr: ui-build
+          {{- if .Values.prefect-server.server.extraVolumeMounts }}
+          {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.extraVolumeMounts "context" $) | nindent 12 }}
+          {{- end }}
+        {{- if .Values.prefect-server.server.extraContainers }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.extraContainers "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: scratch
+          emptyDir: {}
+        {{- if .Values.prefect-server.server.extraVolumes }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.prefect-server.server.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
