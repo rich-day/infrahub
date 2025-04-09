@@ -79,6 +79,7 @@ services:
       PREFECT_LOGGING_LEVEL: "DEBUG"
       PREFECT_INTERNAL_LOGGING_LEVEL: "DEBUG"
       PREFECT_SERVER_LOGGING_LEVEL: "DEBUG"
+      PREFECT_SERVER_EVENTS_MAXIMUM_RELATED_RESOURCES: 500
     healthcheck:
       test: /usr/local/bin/httpx http://localhost:4200/api/health || exit 1
       interval: 5s
