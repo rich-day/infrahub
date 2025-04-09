@@ -77,6 +77,8 @@ services:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://postgres:postgres@task-manager-db:5432/prefect
       PREFECT__SERVER_WEBSERVER_ONLY: "true"
       PREFECT_LOGGING_LEVEL: "DEBUG"
+      PREFECT_INTERNAL_LOGGING_LEVEL: "DEBUG"
+      PREFECT_SERVER_LOGGING_LEVEL: "DEBUG"
     healthcheck:
       test: /usr/local/bin/httpx http://localhost:4200/api/health || exit 1
       interval: 5s
