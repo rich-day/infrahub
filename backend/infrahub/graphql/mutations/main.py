@@ -179,6 +179,10 @@ class InfrahubMutationMixin:
         lock_names = _get_kind_lock_names_on_object_mutation(
             kind=cls._meta.active_schema.kind, branch=branch, schema_branch=schema_branch
         )
+        if lock_names:
+            async with InfrahubMultiLock(lock_registry=lock.registry, locks=lock_names):
+                return await cls.mutate_create_object(data=data, db=db, branch=branch)
+
         return await cls.mutate_create_object(data=data, db=db, branch=branch)
 
     @classmethod
