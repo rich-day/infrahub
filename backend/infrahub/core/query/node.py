@@ -210,7 +210,7 @@ class NodeCreateAllQuery(NodeQuery):
             CREATE (a:Attribute { uuid: attr.uuid, name: attr.name, branch_support: attr.branch_support })
             CREATE (n)-[:HAS_ATTRIBUTE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(a)
             MERGE (av:AttributeValue { value: attr.content.value, is_default: attr.content.is_default })
-            WITH n, attr, av, a
+            WITH av, a
             LIMIT 1
             CREATE (a)-[:HAS_VALUE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(av)
             MERGE (ip:Boolean { value: attr.is_protected })
@@ -235,7 +235,7 @@ class NodeCreateAllQuery(NodeQuery):
             CREATE (a:Attribute { uuid: attr.uuid, name: attr.name, branch_support: attr.branch_support })
             CREATE (n)-[:HAS_ATTRIBUTE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(a)
             MERGE (av:AttributeValue:AttributeIPHost { %(iphost_prop)s })
-            WITH n, attr, av, a
+            WITH attr, av, a
             LIMIT 1
             CREATE (a)-[:HAS_VALUE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(av)
             MERGE (ip:Boolean { value: attr.is_protected })
@@ -261,7 +261,7 @@ class NodeCreateAllQuery(NodeQuery):
             CREATE (a:Attribute { uuid: attr.uuid, name: attr.name, branch_support: attr.branch_support })
             CREATE (n)-[:HAS_ATTRIBUTE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(a)
             MERGE (av:AttributeValue:AttributeIPNetwork { %(ipnetwork_prop)s })
-            WITH n, attr, av, a
+            WITH attr, av, a
             LIMIT 1
             CREATE (a)-[:HAS_VALUE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(av)
             MERGE (ip:Boolean { value: attr.is_protected })

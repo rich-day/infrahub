@@ -44,7 +44,6 @@ class RelationshipPeerUpdateValidatorQuery(RelationshipSchemaValidatorQuery):
             LIMIT 1
         }
         WITH full_path, active_node
-        WITH full_path, active_node
         WHERE all(r in relationships(full_path) WHERE r.status = "active")
         CALL (active_node) {
             MATCH path = (active_node)-[rrel1:IS_RELATED]-(rel:Relationship { name: $relationship_id })-[rrel2:IS_RELATED]-(peer:Node)
@@ -76,7 +75,6 @@ class RelationshipPeerUpdateValidatorQuery(RelationshipSchemaValidatorQuery):
                 path_to_check[2] DESC
             LIMIT 1
         }
-        WITH start_node, current_peer, branch_name, current_path
         WITH start_node, current_peer, branch_name, current_path
         WHERE all(r in relationships(current_path) WHERE r.status = "active")
         AND NOT any(label IN LABELS(current_peer) WHERE label IN $allowed_peer_kinds)

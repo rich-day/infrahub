@@ -59,7 +59,6 @@ class RelationshipCountUpdateValidatorQuery(RelationshipSchemaValidatorQuery):
         }
         // filter to only the active nodes
         WITH full_path, active_node
-        WITH full_path, active_node
         WHERE all(r in relationships(full_path) WHERE r.status = "active")
         // get the relationships using the given identifier for each node
         CALL (active_node) {

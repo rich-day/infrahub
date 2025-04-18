@@ -31,7 +31,6 @@ class NodeNotPresentValidatorQuery(SchemaValidatorQuery):
             LIMIT 1
         }
         WITH full_path, node, root_relationship
-        WITH full_path, node, root_relationship
         WHERE all(r in relationships(full_path) WHERE r.status = "active")
         """ % {"branch_filter": branch_filter, "node_kind": self.node_schema.kind}
 

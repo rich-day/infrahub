@@ -173,7 +173,7 @@ class NodeUniqueAttributeConstraintQuery(Query):
         }
         WITH start_node, potential_path, rel_identifier, potential_attr, potential_attr_value
         CALL (potential_path) {
-            WITH potential_path  // workaround for neo4j not allowing WHERE in a WITH of a subquery
+            WITH potential_path // workaround for neo4j not allowing WHERE in a WITH of a subquery
             // only the branches and times we care about
             WHERE all(
                 r IN relationships(potential_path) WHERE (

@@ -326,7 +326,7 @@ CALL (p, q, diff_rel, row_from_time) {
         p.uuid IS NULL OR prop.uuid IS NULL OR p.uuid <> prop.uuid
         OR type(r_node) <> "IS_RELATED" OR type(r_prop) <> "IS_RELATED"
     )
-    WITH path, p, node, prop, r_prop, r_node, type(r_node) AS rel_type, row_from_time
+    WITH path, node, prop, r_prop, r_node, type(r_node) AS rel_type, row_from_time
     // -------------------------------------
     // Exclude attributes/relationships added then removed on branch within timeframe
     // -------------------------------------
@@ -685,7 +685,7 @@ CALL (n, p, row_from_time){
         LIMIT 1
         RETURN COALESCE(r_root_deleted.status = "deleted", FALSE) AS node_deleted
     }
-    WITH n, p, row_from_time, node_deleted
+    WITH node_deleted
     CALL (n, p, row_from_time) {
         OPTIONAL MATCH (n)-[r_node_deleted {branch: $branch_name}]-(p)
         WHERE row_from_time <= r_node_deleted.from < $to_time

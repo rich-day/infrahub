@@ -35,7 +35,6 @@ class AttributeUniqueUpdateValidatorQuery(AttributeSchemaValidatorQuery):
             MATCH potential_path = (potential_node)-[:HAS_ATTRIBUTE]-(:Attribute { name: $attr_name })-[potential_value_relationship:HAS_VALUE]-(potential_value:AttributeValue)
             WHERE all(r IN relationships(potential_path) WHERE (%(branch_filter)s))
             WITH
-                potential_node,
                 potential_value,
                 potential_value_relationship,
                 potential_path,
