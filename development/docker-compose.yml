@@ -113,6 +113,8 @@ services:
     profiles: [demo, dev]
     build:
       context: ../
+      args:
+        FRONTEND_FLAG_ARG: ${FRONTEND_FLAG}
       dockerfile: development/Dockerfile
       target: backend
     image: "${IMAGE_NAME}:${IMAGE_VER}"

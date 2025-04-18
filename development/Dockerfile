@@ -36,6 +36,8 @@ RUN poetry config virtualenvs.create false
 # STAGE : Frontend
 # ****************************************************************
 FROM docker.io/node:20-slim AS frontend
+ARG FRONTEND_FLAG_ARG
+ENV FRONTEND_FLAG=$FRONTEND_FLAG_ARG
 
 RUN mkdir /source
 

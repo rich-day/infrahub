@@ -724,6 +724,7 @@ jobs:
           - name: E2E-testing-playwright
             env:
               INFRAHUB_DB_TYPE: neo4j
+              FRONTEND_FLAG: bla
           # - name: E2E-testing-playwright-nats
           #   env:
           #     INFRAHUB_DB_TYPE: neo4j
