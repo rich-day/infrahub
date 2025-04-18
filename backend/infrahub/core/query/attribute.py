@@ -65,9 +65,7 @@ class AttributeUpdateValueQuery(AttributeQuery):
 
         query = """
         MATCH (a:Attribute { uuid: $attr_uuid })
-        MERGE (av:%(labels)s { %(props)s } )
-        WITH av, a
-        LIMIT 1
+        CREATE (av:%(labels)s { %(props)s } )
         CREATE (a)-[r:%(rel_label)s { branch: $branch, branch_level: $branch_level, status: "active", from: $at }]->(av)
         """ % {"rel_label": self.attr._rel_to_value_label, "labels": ":".join(labels), "props": ", ".join(prop_list)}
 

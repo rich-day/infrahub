@@ -210,9 +210,7 @@ class NodeCreateAllQuery(NodeQuery):
             WITH n, attr
             CREATE (a:Attribute { uuid: attr.uuid, name: attr.name, branch_support: attr.branch_support })
             CREATE (n)-[:HAS_ATTRIBUTE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(a)
-            MERGE (av:AttributeValue { value: attr.content.value, is_default: attr.content.is_default })
-            WITH n, attr, av, a
-            LIMIT 1
+            CREATE (av:AttributeValue { value: attr.content.value, is_default: attr.content.is_default })
             CREATE (a)-[:HAS_VALUE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(av)
             MERGE (ip:Boolean { value: attr.is_protected })
             MERGE (iv:Boolean { value: attr.is_visible })
@@ -236,9 +234,7 @@ class NodeCreateAllQuery(NodeQuery):
             WITH n, attr_iphost AS attr
             CREATE (a:Attribute { uuid: attr.uuid, name: attr.name, branch_support: attr.branch_support })
             CREATE (n)-[:HAS_ATTRIBUTE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(a)
-            MERGE (av:AttributeValue:AttributeIPHost { %(iphost_prop)s })
-            WITH n, attr, av, a
-            LIMIT 1
+            CREATE (av:AttributeValue:AttributeIPHost { %(iphost_prop)s })
             CREATE (a)-[:HAS_VALUE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(av)
             MERGE (ip:Boolean { value: attr.is_protected })
             MERGE (iv:Boolean { value: attr.is_visible })
@@ -263,9 +259,7 @@ class NodeCreateAllQuery(NodeQuery):
             WITH n, attr_ipnetwork AS attr
             CREATE (a:Attribute { uuid: attr.uuid, name: attr.name, branch_support: attr.branch_support })
             CREATE (n)-[:HAS_ATTRIBUTE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(a)
-            MERGE (av:AttributeValue:AttributeIPNetwork { %(ipnetwork_prop)s })
-            WITH n, attr, av, a
-            LIMIT 1
+            CREATE (av:AttributeValue:AttributeIPNetwork { %(ipnetwork_prop)s })
             CREATE (a)-[:HAS_VALUE { branch: attr.branch, branch_level: attr.branch_level, status: attr.status, from: $at }]->(av)
             MERGE (ip:Boolean { value: attr.is_protected })
             MERGE (iv:Boolean { value: attr.is_visible })
