@@ -40,16 +40,14 @@ class TestDuplicateEdgesDeleted:
         CREATE (a)-[duplicate_e:HAS_VALUE]->(av)
         SET duplicate_e = properties(e)
         WITH a
-        CALL {
-            WITH a
+        CALL (a) {
             MATCH (a)-[ve:IS_VISIBLE]->(v)
-            WITH a, ve, v
+            WITH ve, v
             LIMIT 1
             CREATE (a)-[new_ve:IS_VISIBLE]->(v)
             SET new_ve = properties(ve)
-            WITH a
             MATCH (a)-[pe:IS_PROTECTED]->(p)
-            WITH a, pe, p
+            WITH pe, p
             LIMIT 1
             CREATE (a)-[new_pe:IS_PROTECTED]->(p)
             SET new_pe = properties(pe)
