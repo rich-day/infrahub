@@ -168,7 +168,7 @@ class NodeUniqueAttributeConstraintQuery(Query):
             %(select_subqueries_str)s
             RETURN %(return_subqueries_str)s
         }
-        CALL () {
+        CALL (%(return_subqueries_str)s) {
             %(filter_subqueries_str)s
         }
         WITH start_node, potential_path, rel_identifier, potential_attr, potential_attr_value
