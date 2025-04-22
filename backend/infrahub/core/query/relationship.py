@@ -1027,7 +1027,7 @@ class RelationshipDeleteAllQuery(Query):
             WHERE %(active_rel_filter)s AND active_edge.status ="active"
             CREATE (rl)-[deleted_edge:IS_RELATED $rel_prop]->(n)
             SET deleted_edge.hierarchy = active_edge.hierarchy
-            WITH active_edge, n
+            WITH rl, active_edge, n
             WHERE active_edge.branch = $branch AND active_edge.to IS NULL
             SET active_edge.to = $at
             RETURN
@@ -1037,12 +1037,12 @@ class RelationshipDeleteAllQuery(Query):
                 "outbound" as rel_direction
 
             UNION
-
+            WITH rl
             MATCH (rl)<-[active_edge:IS_RELATED]-(n)
             WHERE %(active_rel_filter)s AND active_edge.status ="active"
             CREATE (rl)<-[deleted_edge:IS_RELATED $rel_prop]-(n)
             SET deleted_edge.hierarchy = active_edge.hierarchy
-            WITH active_edge, n
+            WITH rl, active_edge, n
             WHERE active_edge.branch = $branch AND active_edge.to IS NULL
             SET active_edge.to = $at
             RETURN

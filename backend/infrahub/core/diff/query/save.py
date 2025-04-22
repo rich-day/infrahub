@@ -98,6 +98,7 @@ CALL (diff_node) {
     // -------------------------
     // delete parent-child relationships for included nodes, they will be added in EnrichedNodesLinkQuery
     // -------------------------
+    WITH diff_node
     MATCH (diff_node)-[:DIFF_HAS_RELATIONSHIP]->(:DiffRelationship)-[parent_rel:DIFF_HAS_NODE]->(:DiffNode)
     DELETE parent_rel
 }
@@ -106,6 +107,7 @@ CALL (diff_node, current_node_conflict, has_node_conflict) {
     // -------------------------
     // create a node-level conflict, if necessary
     // -------------------------
+    WITH diff_node, current_node_conflict, has_node_conflict
     WHERE current_node_conflict IS NULL AND has_node_conflict = TRUE
     CREATE (diff_node)-[:DIFF_HAS_CONFLICT]->(:DiffConflict)
 }
@@ -113,6 +115,7 @@ CALL (current_node_conflict, has_node_conflict) {
     // -------------------------
     // delete a node-level conflict, if necessary
     // -------------------------
+    WITH current_node_conflict, has_node_conflict
     WHERE current_node_conflict IS NOT NULL AND has_node_conflict = FALSE
     DETACH DELETE current_node_conflict
 }
@@ -121,6 +124,7 @@ CALL (diff_node, has_node_conflict, node_conflict_params) {
     // -------------------------
     // set the properties of the node-level conflict, if necessary
     // -------------------------
+    WITH diff_node, has_node_conflict, node_conflict_params
     WHERE has_node_conflict = TRUE
     OPTIONAL MATCH (diff_node)-[:DIFF_HAS_CONFLICT]->(node_conflict:DiffConflict)
     SET node_conflict = node_conflict_params

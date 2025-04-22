@@ -230,14 +230,17 @@ WITH root, sum(num_conflicts_delta) AS total_conflicts_delta
 CALL (root, total_conflicts_delta) {
     SET root.num_conflicts = coalesce(root.num_conflicts, 0) + total_conflicts_delta
     SET root.contains_conflict = root.num_conflicts > 0
+    WITH root
     OPTIONAL MATCH (root)-[:DIFF_HAS_NODE]->(dn:DiffNode {action: "added"})
-    WITH count(dn.action) AS num_added
+    WITH root, count(dn.action) AS num_added
     SET root.num_added = num_added
+    WITH root
     OPTIONAL MATCH (root)-[:DIFF_HAS_NODE]->(dn:DiffNode {action: "updated"})
-    WITH count(dn.action) AS num_updated
+    WITH root, count(dn.action) AS num_updated
     SET root.num_updated = num_updated
+    WITH root
     OPTIONAL MATCH (root)-[:DIFF_HAS_NODE]->(dn:DiffNode {action: "removed"})
-    WITH count(dn.action) AS num_removed
+    WITH root, count(dn.action) AS num_removed
     SET root.num_removed = num_removed
 }
         """

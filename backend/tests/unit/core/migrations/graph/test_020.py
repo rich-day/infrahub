@@ -46,8 +46,9 @@ class TestDuplicateEdgesDeleted:
             LIMIT 1
             CREATE (a)-[new_ve:IS_VISIBLE]->(v)
             SET new_ve = properties(ve)
+            WITH a
             MATCH (a)-[pe:IS_PROTECTED]->(p)
-            WITH pe, p
+            WITH a, pe, p
             LIMIT 1
             CREATE (a)-[new_pe:IS_PROTECTED]->(p)
             SET new_pe = properties(pe)
