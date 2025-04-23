@@ -22,16 +22,31 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+  task-manager-init:
+    profiles: [demo, dev]
+    image: "${IMAGE_NAME}:${IMAGE_VER}"
+    command: "prefect server database upgrade -y"
+    environment:
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://postgres:postgres@task-manager-db:5432/prefect
+    depends_on:
+      task-manager-db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
   task-manager:
     profiles: [demo, dev]
     image: "${IMAGE_NAME}:${IMAGE_VER}"
-    command: uvicorn --host 0.0.0.0 --port 4200 --factory infrahub.prefect_server.app:create_infrahub_prefect
+    command: "${PREFECT_SERVER_COMMAND:-uvicorn --host 0.0.0.0 --port 4200 --factory infrahub.prefect_server.app:create_infrahub_prefect}"
     environment:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://postgres:postgres@task-manager-db:5432/prefect
       PREFECT_LOCAL_STORAGE_PATH: ${PREFECT_LOCAL_STORAGE_PATH:-/opt/prefect/}
       PREFECT__SERVER_WEBSERVER_ONLY: "true"
-      PREFECT_WORKER_QUERY_SECONDS: 3
-      PREFECT_AGENT_QUERY_INTERVAL: 3
+
+      PREFECT_MESSAGING_BROKER: prefect_redis.messaging
+      PREFECT_MESSAGING_CACHE: prefect_redis.messaging
+      PREFECT_REDIS_MESSAGING_HOST: "${INFRAHUB_CACHE_ADDRESS:-cache}"
+      PREFECT_REDIS_MESSAGING_DB: "1"
+      WEB_CONCURRENCY: ${TASK_MANAGER_API_WORKERS:-2}
     healthcheck:
       test: /usr/local/bin/httpx http://localhost:4200/api/health || exit 1
       interval: 5s
@@ -39,7 +54,15 @@ services:
       retries: 20
       start_period: 10s
     depends_on:
-      - task-manager-db
+      task-manager-init:
+        condition: service_completed_successfully
+      task-manager-db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    labels:
+      namespace: "prefect"
+      pod: "prefect-server"
   task-manager-background-svc:
     profiles: [demo, dev]
     image: "${IMAGE_NAME}:${IMAGE_VER}"
@@ -47,8 +70,17 @@ services:
     environment:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://postgres:postgres@task-manager-db:5432/prefect
       PREFECT_LOCAL_STORAGE_PATH: ${PREFECT_LOCAL_STORAGE_PATH:-/opt/prefect/}
+
+      PREFECT_MESSAGING_BROKER: prefect_redis.messaging
+      PREFECT_MESSAGING_CACHE: prefect_redis.messaging
+      PREFECT_REDIS_MESSAGING_HOST: "${INFRAHUB_CACHE_ADDRESS:-cache}"
+      PREFECT_REDIS_MESSAGING_DB: "1"
     depends_on:
       task-manager:
+        condition: service_healthy
+      task-manager-db:
+        condition: service_healthy
+      cache:
         condition: service_healthy
     labels:
       namespace: "prefect"
