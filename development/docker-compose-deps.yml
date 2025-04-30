@@ -25,7 +25,7 @@ services:
   task-manager-init:
     profiles: [demo, dev]
     image: "${IMAGE_NAME}:${IMAGE_VER}"
-    command: "prefect server database upgrade -y"
+    command: "python -m infrahub.prefect_server.bootstrap"
     environment:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://postgres:postgres@task-manager-db:5432/prefect
     depends_on:
