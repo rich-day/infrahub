@@ -44,6 +44,8 @@ if TYPE_CHECKING:
     from infrahub.core.schema import MainSchemaTypes, NodeSchema
     from infrahub.core.schema.schema_branch import SchemaBranch
 
+    from .manager import DatabaseManager
+
 validated_database = {}
 R = TypeVar("R")
 
@@ -132,6 +134,7 @@ class InfrahubDatabase:
         mode: InfrahubDatabaseMode = InfrahubDatabaseMode.DRIVER,
         db_type: DatabaseType | None = None,
         default_neo4j_runtime: Neo4jRuntime = Neo4jRuntime.DEFAULT,
+        db_manager: DatabaseManager | None = None,
         schemas: list[SchemaBranch] | None = None,
         session: AsyncSession | None = None,
         session_mode: InfrahubDatabaseSessionMode = InfrahubDatabaseSessionMode.WRITE,
@@ -158,7 +161,10 @@ class InfrahubDatabase:
         else:
             self.db_type = config.SETTINGS.database.db_type
 
-        if self.db_type == DatabaseType.NEO4J:
+        if db_manager:
+            self.manager = db_manager
+            self.manager.db = self
+        elif self.db_type == DatabaseType.NEO4J:
             self.manager = DatabaseManagerNeo4j(db=self)
         elif self.db_type == DatabaseType.MEMGRAPH:
             self.manager = DatabaseManagerMemgraph(db=self)
@@ -222,6 +228,7 @@ class InfrahubDatabase:
             db_type=self.db_type,
             default_neo4j_runtime=self.default_neo4j_runtime,
             schemas=schemas or self._schemas.values(),
+            db_manager=self.manager,
             driver=self._driver,
             session_mode=session_mode,
             queries_names_to_config=self.queries_names_to_config,
@@ -236,6 +243,7 @@ class InfrahubDatabase:
             db_type=self.db_type,
             default_neo4j_runtime=self.default_neo4j_runtime,
             schemas=schemas or self._schemas.values(),
+            db_manager=self.manager,
             driver=self._driver,
             session=self._session,
             session_mode=self._session_mode,
