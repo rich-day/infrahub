@@ -2,16 +2,21 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from infrahub.auth import AccountSession
+from infrahub.context import InfrahubContext
 from infrahub.core.attribute import BaseAttribute
 from infrahub.core.branch import Branch
 from infrahub.core.constants import RelationshipCardinality
+from infrahub.core.constants.infrahubkind import READONLYREPOSITORY, REPOSITORY
 from infrahub.core.manager import NodeManager
 from infrahub.core.node import Node
 from infrahub.core.node.create import create_node
 from infrahub.core.query.relationship import GetAllPeersIds
 from infrahub.core.relationship import RelationshipManager
+from infrahub.core.repositories.create_repository import post_create_repository
 from infrahub.core.schema import NodeSchema
 from infrahub.database import InfrahubDatabase
+from infrahub.services import InfrahubServices
 
 
 class InputDataForDestField(BaseModel):  # Only one of these fields can be not None
@@ -88,7 +93,14 @@ async def get_unidirectional_rels_peers_ids(node: Node, branch: Branch, db: Infr
 
 
 async def convert_object_type(
-    node: Node, target_schema: NodeSchema, mapping: dict[str, InputForDestField], branch: Branch, db: InfrahubDatabase
+    node: Node,
+    target_schema: NodeSchema,
+    mapping: dict[str, InputForDestField],
+    branch: Branch,
+    db: InfrahubDatabase,
+    account_session: AccountSession,
+    services: InfrahubServices,
+    context: InfrahubContext,
 ) -> Node:
     """Delete the node and return the new created one. If creation fails, the node is not deleted, and raise an error.
     An extra check is performed on input node peers relationships to make sure they are still valid."""
@@ -106,6 +118,7 @@ async def convert_object_type(
             raise ValueError(f"Deleted {len(deleted_nodes)} nodes instead of 1")
 
         data_new_node = await build_data_new_node(dbt, mapping, node)
+
         node_created = await create_node(
             data=data_new_node,
             db=dbt,
@@ -119,4 +132,17 @@ async def convert_object_type(
         for peer in peers.values():
             peer.validate_relationships()
 
-        return node_created
+    # We can't apply post creation steps within above transaction as a sdk call tries to fetch the node
+    # created within the transaction from a different process, therefore that would not run within this transaction
+    # so the node ends up being not found
+    if target_schema.kind in [REPOSITORY, READONLYREPOSITORY]:
+        await post_create_repository(
+            obj=node_created,  # type: ignore
+            db=db,
+            branch=branch,
+            account_session=account_session,
+            services=services,
+            context=context,
+        )
+
+    return node_created

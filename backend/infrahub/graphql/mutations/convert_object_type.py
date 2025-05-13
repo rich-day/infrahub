@@ -54,6 +54,9 @@ class ConvertObjectType(Mutation):
             mapping=fields_mapping,
             branch=graphql_context.branch,
             db=graphql_context.db,
+            account_session=graphql_context.active_account_session,
+            services=graphql_context.active_service,
+            context=graphql_context.get_context(),
         )
 
         dict_node = await new_node.to_graphql(db=graphql_context.db, fields={})

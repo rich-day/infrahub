@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -68,7 +69,7 @@ class TestSchemaConversionMapping(TestInfrahubApp):
 
 class TestConvertObjectType(TestInfrahubApp):
     async def test_convert_object_type(
-        self, db: InfrahubDatabase, client: InfrahubClient, schemas_conversion, branch
+        self, db: InfrahubDatabase, client: InfrahubClient, schemas_conversion, branch, service
     ) -> None:
         res = await client.schema.load(schemas=[schemas_conversion], branch=branch.name)
         assert len(res.errors) == 0, res.errors
@@ -110,7 +111,14 @@ class TestConvertObjectType(TestInfrahubApp):
 
         person_2_schema = registry.get_node_schema(name="TestconvPerson2", branch=branch)
         jack_2 = await convert_object_type(
-            node=jack_1, target_schema=person_2_schema, mapping=mapping, db=db, branch=branch
+            node=jack_1,
+            target_schema=person_2_schema,
+            mapping=mapping,
+            db=db,
+            branch=branch,
+            services=service,
+            context=MagicMock(),
+            account_session=MagicMock(),
         )
 
         with pytest.raises(NodeNotFoundError):
@@ -144,7 +152,12 @@ class TestConvertObjectType(TestInfrahubApp):
             )
 
     async def test_raise_on_break_mandatory_relationship(
-        self, db: InfrahubDatabase, client: InfrahubClient, schema_conversion_mandatory_owner, default_branch
+        self,
+        db: InfrahubDatabase,
+        client: InfrahubClient,
+        schema_conversion_mandatory_owner,
+        default_branch,
+        service,
     ) -> None:
         # Add a mandatory relationship between TestPerson1 and TestCar, that would no longer exist after converting a TestPerson1 to a TestPerson2.
         res = await client.schema.load(schemas=[schema_conversion_mandatory_owner], branch=default_branch.name)
@@ -173,7 +186,14 @@ class TestConvertObjectType(TestInfrahubApp):
         person_2_schema = registry.get_node_schema(name="TestmoPerson2", branch=default_branch)
         with pytest.raises(ValidationError, match=r"Too few relationships, min 1 at mandatory_owner"):
             await convert_object_type(
-                node=jack_1, target_schema=person_2_schema, mapping=mapping, db=db, branch=default_branch
+                node=jack_1,
+                target_schema=person_2_schema,
+                mapping=mapping,
+                db=db,
+                branch=default_branch,
+                services=service,
+                context=MagicMock(),
+                account_session=MagicMock(),
             )
 
         # And make sure it works when setting a new owner to the car
@@ -182,7 +202,14 @@ class TestConvertObjectType(TestInfrahubApp):
             "my_car": InputForDestField(data=InputDataForDestField(peer_id=car_1.id)),
         }
         await convert_object_type(
-            node=jack_1, target_schema=person_2_schema, mapping=mapping, db=db, branch=default_branch
+            node=jack_1,
+            target_schema=person_2_schema,
+            mapping=mapping,
+            db=db,
+            branch=default_branch,
+            services=service,
+            context=MagicMock(),
+            account_session=MagicMock(),
         )
 
     async def test_raise_on_break_mandatory_unidirectional_relationship(
@@ -191,6 +218,7 @@ class TestConvertObjectType(TestInfrahubApp):
         client: InfrahubClient,
         schema_conversion_unidirectional_relationships,
         default_branch,
+        service,
     ) -> None:
         # Add a mandatory relationship between TestPerson1 and TestCar, that would no longer exist after converting a TestPerson1 to a TestPerson2.
         res = await client.schema.load(
@@ -221,11 +249,18 @@ class TestConvertObjectType(TestInfrahubApp):
         person_2_schema = registry.get_node_schema(name="TestudPerson2", branch=default_branch)
         with pytest.raises(ValidationError, match=r"Too few relationships, min 1 at unidirectional_owner"):
             await convert_object_type(
-                node=jack_1, target_schema=person_2_schema, mapping=mapping, db=db, branch=default_branch
+                node=jack_1,
+                target_schema=person_2_schema,
+                mapping=mapping,
+                db=db,
+                branch=default_branch,
+                services=service,
+                context=MagicMock(),
+                account_session=MagicMock(),
             )
 
     async def test_agnostic_attributes(
-        self, db: InfrahubDatabase, client: InfrahubClient, schema_conversion_aware_agnostic, default_branch
+        self, db: InfrahubDatabase, client: InfrahubClient, schema_conversion_aware_agnostic, default_branch, service
     ) -> None:
         res = await client.schema.load(schemas=[schema_conversion_aware_agnostic], branch=default_branch.name)
         assert len(res.errors) == 0, res.errors
@@ -247,7 +282,14 @@ class TestConvertObjectType(TestInfrahubApp):
 
         person_2_schema = registry.get_node_schema(name="TestbsPerson2", branch=default_branch)
         jack_2 = await convert_object_type(
-            node=jack_1, target_schema=person_2_schema, mapping=mapping, db=db, branch=default_branch
+            node=jack_1,
+            target_schema=person_2_schema,
+            mapping=mapping,
+            db=db,
+            branch=default_branch,
+            services=service,
+            context=MagicMock(),
+            account_session=MagicMock(),
         )
 
         assert jack_2 is not None
