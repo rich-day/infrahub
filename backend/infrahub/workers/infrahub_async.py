@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 from anyio.abc import TaskStatus
@@ -22,6 +22,7 @@ from infrahub.database import InfrahubDatabase, get_db
 from infrahub.dependencies.registry import build_component_registry
 from infrahub.git import initialize_repositories_directory
 from infrahub.lock import initialize_lock
+from infrahub.message_bus.types import KVTTL
 from infrahub.services import InfrahubServices
 from infrahub.services.adapters.cache import InfrahubCache
 from infrahub.services.adapters.message_bus import InfrahubMessageBus
@@ -29,8 +30,12 @@ from infrahub.services.adapters.workflow import InfrahubWorkflow
 from infrahub.services.adapters.workflow.local import WorkflowLocalExecution
 from infrahub.services.adapters.workflow.worker import WorkflowWorkerExecution
 from infrahub.trace import configure_trace
+from infrahub.worker import WORKER_IDENTITY
 from infrahub.workers.utils import inject_service_parameter, load_flow_function
 from infrahub.workflows.models import TASK_RESULT_STORAGE_NAME
+
+if TYPE_CHECKING:
+    from prefect.client.schemas.responses import WorkerFlowRunResponse
 
 WORKER_QUERY_SECONDS = "2"
 WORKER_DEFAULT_RESULT_STORAGE_BLOCK = f"redisstoragecontainer/{TASK_RESULT_STORAGE_NAME}"
@@ -220,3 +225,22 @@ class InfrahubWorkerAsync(BaseWorker):
         )
 
         self.service = service
+
+    async def _submit_scheduled_flow_runs(self, flow_run_response: list["WorkerFlowRunResponse"]) -> list["FlowRun"]:
+        """
+        Takes a list of WorkerFlowRunResponses and submits the referenced flow runs
+        for execution by the worker.
+        """
+        submittable_flow_runs = []
+        for entry in flow_run_response:
+            if entry.flow_run.id not in self._submitting_flow_run_ids:
+                result = await self.service.cache.set(
+                    key=f"flow-run-pending-{entry.flow_run.id}",
+                    value=WORKER_IDENTITY,
+                    expires=KVTTL.FIFTEEN,
+                    not_exists=True,
+                )
+                if result:
+                    submittable_flow_runs.append(entry)
+
+        return await super()._submit_scheduled_flow_runs(flow_run_response=submittable_flow_runs)
