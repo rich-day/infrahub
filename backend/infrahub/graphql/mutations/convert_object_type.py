@@ -7,6 +7,7 @@ from graphql import GraphQLResolveInfo
 from infrahub.core import registry
 from infrahub.core.convert_object_type.conversion import InputForDestField, convert_object_type
 from infrahub.core.manager import NodeManager
+from infrahub.core.repositories.create_repository import RepositoryPostCreator
 
 if TYPE_CHECKING:
     from infrahub.graphql.initialization import GraphqlContext
@@ -54,9 +55,11 @@ class ConvertObjectType(Mutation):
             mapping=fields_mapping,
             branch=graphql_context.branch,
             db=graphql_context.db,
-            account_session=graphql_context.active_account_session,
-            services=graphql_context.active_service,
-            context=graphql_context.get_context(),
+            repository_post_creator=RepositoryPostCreator(
+                account_session=graphql_context.active_account_session,
+                services=graphql_context.active_service,
+                context=graphql_context.get_context(),
+            ),
         )
 
         dict_node = await new_node.to_graphql(db=graphql_context.db, fields={})

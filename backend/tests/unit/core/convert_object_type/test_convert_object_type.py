@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -116,9 +115,6 @@ class TestConvertObjectType(TestInfrahubApp):
             mapping=mapping,
             db=db,
             branch=branch,
-            services=service,
-            context=MagicMock(),
-            account_session=MagicMock(),
         )
 
         with pytest.raises(NodeNotFoundError):
@@ -191,9 +187,6 @@ class TestConvertObjectType(TestInfrahubApp):
                 mapping=mapping,
                 db=db,
                 branch=default_branch,
-                services=service,
-                context=MagicMock(),
-                account_session=MagicMock(),
             )
 
         # And make sure it works when setting a new owner to the car
@@ -207,9 +200,6 @@ class TestConvertObjectType(TestInfrahubApp):
             mapping=mapping,
             db=db,
             branch=default_branch,
-            services=service,
-            context=MagicMock(),
-            account_session=MagicMock(),
         )
 
     async def test_raise_on_break_mandatory_unidirectional_relationship(
@@ -254,9 +244,6 @@ class TestConvertObjectType(TestInfrahubApp):
                 mapping=mapping,
                 db=db,
                 branch=default_branch,
-                services=service,
-                context=MagicMock(),
-                account_session=MagicMock(),
             )
 
     async def test_agnostic_attributes(
@@ -287,9 +274,6 @@ class TestConvertObjectType(TestInfrahubApp):
             mapping=mapping,
             db=db,
             branch=default_branch,
-            services=service,
-            context=MagicMock(),
-            account_session=MagicMock(),
         )
 
         assert jack_2 is not None

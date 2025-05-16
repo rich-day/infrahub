@@ -22,73 +22,83 @@ if TYPE_CHECKING:
 log = get_logger()
 
 
-async def post_create_repository(
-    obj: CoreGenericRepository,
-    branch: Branch,
-    db: InfrahubDatabase,
-    account_session: AccountSession,
-    services: InfrahubServices,
-    context: InfrahubContext,
-) -> None:
-    # First check the connectivity to the remote repository
-    # If the connectivity is not good, we remove the repository to allow the user to add a new one
+class RepositoryPostCreator:
+    def __init__(
+        self,
+        account_session: AccountSession,
+        services: InfrahubServices,
+        context: InfrahubContext,
+    ) -> None:
+        self.account_session = account_session
+        self.services = services
+        self.context = context
 
-    message = messages.GitRepositoryConnectivity(
-        repository_name=obj.name.value,
-        repository_location=obj.location.value,
-    )
-    response = await services.message_bus.rpc(message=message, response_class=GitRepositoryConnectivityResponse)
+    async def post_create(self, obj: CoreGenericRepository, branch: Branch, db: InfrahubDatabase) -> None:
+        """
+        Method meant to be called after a repository has been created in the database.
+        It mainly checks the connectivity to the remote repository and submit the workflow to create the repository in the local filesystem.
+        """
 
-    if response.data.success is False:
-        await obj.delete(db=db)
-        raise ValidationError(response.data.message)
-    # If we are in the default branch, we set the sync status to Active
-    # If we are in another branch, we set the sync status to Staging
-    if branch.is_default:
-        obj.internal_status.value = RepositoryInternalStatus.ACTIVE.value
-    else:
-        obj.internal_status.value = RepositoryInternalStatus.STAGING.value
-    await obj.save(db=db)
-
-    # Create the new repository in the filesystem.
-    log.info("create_repository", name=obj.name.value)
-    authenticated_user = None
-    if account_session and account_session.authenticated:
-        authenticated_user = account_session.account_id
-    if obj.get_kind() == READONLYREPOSITORY:
-        obj = cast(CoreReadOnlyRepository, obj)
-        model = GitRepositoryAddReadOnly(
-            repository_id=obj.id,
+        # If the connectivity is not good, we remove the repository to allow the user to add a new one
+        message = messages.GitRepositoryConnectivity(
             repository_name=obj.name.value,
-            location=obj.location.value,
-            ref=obj.ref.value,
-            infrahub_branch_name=branch.name,
-            infrahub_branch_id=str(branch.get_uuid()),
-            internal_status=obj.internal_status.value,
-            created_by=authenticated_user,
+            repository_location=obj.location.value,
         )
-        await services.workflow.submit_workflow(
-            workflow=GIT_REPOSITORY_ADD_READ_ONLY,
-            context=context,
-            parameters={"model": model},
+        response = await self.services.message_bus.rpc(
+            message=message, response_class=GitRepositoryConnectivityResponse
         )
 
-    else:
-        obj = cast(CoreRepository, obj)
-        git_repo_add_model = GitRepositoryAdd(
-            repository_id=obj.id,
-            repository_name=obj.name.value,
-            location=obj.location.value,
-            default_branch_name=obj.default_branch.value,
-            infrahub_branch_name=branch.name,
-            infrahub_branch_id=str(branch.get_uuid()),
-            internal_status=obj.internal_status.value,
-            created_by=authenticated_user,
-        )
+        if response.data.success is False:
+            await obj.delete(db=db)
+            raise ValidationError(response.data.message)
+        # If we are in the default branch, we set the sync status to Active
+        # If we are in another branch, we set the sync status to Staging
+        if branch.is_default:
+            obj.internal_status.value = RepositoryInternalStatus.ACTIVE.value
+        else:
+            obj.internal_status.value = RepositoryInternalStatus.STAGING.value
+        await obj.save(db=db)
 
-        await services.workflow.submit_workflow(
-            workflow=GIT_REPOSITORY_ADD,
-            context=context,
-            parameters={"model": git_repo_add_model},
-        )
-    # TODO Validate that the creation of the repository went as expected
+        # Create the new repository in the filesystem.
+        log.info("create_repository", name=obj.name.value)
+        authenticated_user = None
+        if self.account_session and self.account_session.authenticated:
+            authenticated_user = self.account_session.account_id
+        if obj.get_kind() == READONLYREPOSITORY:
+            obj = cast(CoreReadOnlyRepository, obj)
+            model = GitRepositoryAddReadOnly(
+                repository_id=obj.id,
+                repository_name=obj.name.value,
+                location=obj.location.value,
+                ref=obj.ref.value,
+                infrahub_branch_name=branch.name,
+                infrahub_branch_id=str(branch.get_uuid()),
+                internal_status=obj.internal_status.value,
+                created_by=authenticated_user,
+            )
+            await self.services.workflow.submit_workflow(
+                workflow=GIT_REPOSITORY_ADD_READ_ONLY,
+                context=self.context,
+                parameters={"model": model},
+            )
+
+        else:
+            obj = cast(CoreRepository, obj)
+            git_repo_add_model = GitRepositoryAdd(
+                repository_id=obj.id,
+                repository_name=obj.name.value,
+                location=obj.location.value,
+                default_branch_name=obj.default_branch.value,
+                infrahub_branch_name=branch.name,
+                infrahub_branch_id=str(branch.get_uuid()),
+                internal_status=obj.internal_status.value,
+                created_by=authenticated_user,
+            )
+
+            await self.services.workflow.submit_workflow(
+                workflow=GIT_REPOSITORY_ADD,
+                context=self.context,
+                parameters={"model": git_repo_add_model},
+            )
+
+        # TODO Validate that the creation of the repository went as expected

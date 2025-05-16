@@ -2,8 +2,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from infrahub.auth import AccountSession
-from infrahub.context import InfrahubContext
 from infrahub.core.attribute import BaseAttribute
 from infrahub.core.branch import Branch
 from infrahub.core.constants import RelationshipCardinality
@@ -13,10 +11,9 @@ from infrahub.core.node import Node
 from infrahub.core.node.create import create_node
 from infrahub.core.query.relationship import GetAllPeersIds
 from infrahub.core.relationship import RelationshipManager
-from infrahub.core.repositories.create_repository import post_create_repository
+from infrahub.core.repositories.create_repository import RepositoryPostCreator
 from infrahub.core.schema import NodeSchema
 from infrahub.database import InfrahubDatabase
-from infrahub.services import InfrahubServices
 
 
 class InputDataForDestField(BaseModel):  # Only one of these fields can be not None
@@ -98,9 +95,7 @@ async def convert_object_type(
     mapping: dict[str, InputForDestField],
     branch: Branch,
     db: InfrahubDatabase,
-    account_session: AccountSession,
-    services: InfrahubServices,
-    context: InfrahubContext,
+    repository_post_creator: RepositoryPostCreator | None = None,
 ) -> Node:
     """Delete the node and return the new created one. If creation fails, the node is not deleted, and raise an error.
     An extra check is performed on input node peers relationships to make sure they are still valid."""
@@ -136,13 +131,12 @@ async def convert_object_type(
     # created within the transaction from a different process, therefore that would not run within this transaction
     # so the node ends up being not found
     if target_schema.kind in [REPOSITORY, READONLYREPOSITORY]:
-        await post_create_repository(
+        if repository_post_creator is None:
+            raise ValueError("repository_post_creator is required for repository conversion")
+        await repository_post_creator.post_create(
+            branch=branch,
             obj=node_created,  # type: ignore
             db=db,
-            branch=branch,
-            account_session=account_session,
-            services=services,
-            context=context,
         )
 
     return node_created

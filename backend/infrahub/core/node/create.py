@@ -146,12 +146,12 @@ async def refresh_for_profile_update(
 
 async def _do_create_node(
     node_class: type[Node],
-    db: InfrahubDatabase,
-    data: dict,
-    schema: NonGenericSchemaTypes,
-    fields_to_validate: list,
-    branch: Branch,
     node_constraint_runner: NodeConstraintRunner,
+    db: InfrahubDatabase,
+    schema: NonGenericSchemaTypes,
+    branch: Branch,
+    fields_to_validate: list[str],
+    data: dict[str, Any],
 ) -> Node:
     obj = await node_class.init(db=db, schema=schema, branch=branch)
     await obj.new(db=db, **data)
@@ -170,8 +170,42 @@ async def _do_create_node(
     return obj
 
 
+async def _do_create_node_with_lock(
+    node_class: type[Node],
+    node_constraint_runner: NodeConstraintRunner,
+    db: InfrahubDatabase,
+    schema: NonGenericSchemaTypes,
+    branch: Branch,
+    fields_to_validate: list[str],
+    data: dict[str, Any],
+) -> Node:
+    schema_branch = registry.schema.get_schema_branch(name=branch.name)
+    lock_names = get_kind_lock_names_on_object_mutation(kind=schema.kind, branch=branch, schema_branch=schema_branch)
+
+    if lock_names:
+        async with InfrahubMultiLock(lock_registry=lock.registry, locks=lock_names):
+            return await _do_create_node(
+                node_class=node_class,
+                node_constraint_runner=node_constraint_runner,
+                db=db,
+                schema=schema,
+                branch=branch,
+                fields_to_validate=fields_to_validate,
+                data=data,
+            )
+    return await _do_create_node(
+        node_class=node_class,
+        node_constraint_runner=node_constraint_runner,
+        db=db,
+        schema=schema,
+        branch=branch,
+        fields_to_validate=fields_to_validate,
+        data=data,
+    )
+
+
 async def create_node(
-    data: dict,
+    data: dict[str, Any],
     db: InfrahubDatabase,
     branch: Branch,
     schema: MainSchemaTypes,
@@ -190,54 +224,27 @@ async def create_node(
         node_class = registry.node[schema.kind]
 
     fields_to_validate = list(data)
-    schema_branch = db.schema.get_schema_branch(name=branch.name)
-    lock_names = get_kind_lock_names_on_object_mutation(kind=schema.kind, branch=branch, schema_branch=schema_branch)
-
     if db.is_transaction:
-        if lock_names:
-            async with InfrahubMultiLock(lock_registry=lock.registry, locks=lock_names):
-                obj = await _do_create_node(
-                    node_class=node_class,
-                    node_constraint_runner=node_constraint_runner,
-                    db=db,
-                    schema=schema,
-                    branch=branch,
-                    fields_to_validate=fields_to_validate,
-                    data=data,
-                )
-        else:
-            obj = await _do_create_node(
+        obj = await _do_create_node_with_lock(
+            node_class=node_class,
+            node_constraint_runner=node_constraint_runner,
+            db=db,
+            schema=schema,
+            branch=branch,
+            fields_to_validate=fields_to_validate,
+            data=data,
+        )
+    else:
+        async with db.start_transaction() as dbt:
+            obj = await _do_create_node_with_lock(
                 node_class=node_class,
                 node_constraint_runner=node_constraint_runner,
-                db=db,
+                db=dbt,
                 schema=schema,
                 branch=branch,
                 fields_to_validate=fields_to_validate,
                 data=data,
             )
-    else:
-        async with db.start_transaction() as dbt:
-            if lock_names:
-                async with InfrahubMultiLock(lock_registry=lock.registry, locks=lock_names):
-                    obj = await _do_create_node(
-                        node_class=node_class,
-                        node_constraint_runner=node_constraint_runner,
-                        db=dbt,
-                        schema=schema,
-                        branch=branch,
-                        fields_to_validate=fields_to_validate,
-                        data=data,
-                    )
-            else:
-                obj = await _do_create_node(
-                    node_class=node_class,
-                    node_constraint_runner=node_constraint_runner,
-                    db=dbt,
-                    schema=schema,
-                    branch=branch,
-                    fields_to_validate=fields_to_validate,
-                    data=data,
-                )
 
     if await get_profile_ids(db=db, obj=obj):
         obj = await refresh_for_profile_update(db=db, branch=branch, schema=schema, obj=obj)
