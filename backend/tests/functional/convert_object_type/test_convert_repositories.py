@@ -221,9 +221,6 @@ class TestConvertRepository(TestInfrahubApp):
 
         repo_intern.validate_local_directories()
 
-        # # Delete the repo so we other tests can create it without violating uniqueness constraint
-        # await read_only_repo.delete(db=db)
-
         query_delete = await DeleteAfterTimeQuery.init(db=db, timestamp=start_time)
         await query_delete.execute(db=db)
 
@@ -408,9 +405,6 @@ class TestConvertRepository(TestInfrahubApp):
         )
 
         repo_intern.validate_local_directories()
-
-        # # Delete the repo so we other tests can create it without violating uniqueness constraint
-        # await read_write_repo.delete(db=db)
 
         query_delete = await DeleteAfterTimeQuery.init(db=db, timestamp=start_time)
         await query_delete.execute(db=db)
