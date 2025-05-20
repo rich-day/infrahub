@@ -25,7 +25,7 @@ from infrahub.workflows.catalogue import (
 )
 
 from ...core.node.create import create_node
-from ...core.repositories.create_repository import RepositoryPostCreator
+from ...core.repositories.create_repository import RepositoryFinalizer
 from ..types.task import TaskInfo
 from .main import InfrahubMutationMixin, InfrahubMutationOptions, build_graphql_response
 
@@ -67,7 +67,7 @@ class InfrahubRepositoryMutation(InfrahubMutationMixin, Mutation):
         db = database or graphql_context.db
         obj = await create_node(data=dict(data), db=db, branch=branch, schema=cls._meta.active_schema)
 
-        await RepositoryPostCreator(
+        await RepositoryFinalizer(
             account_session=graphql_context.active_account_session,
             services=graphql_context.active_service,
             context=graphql_context.get_context(),

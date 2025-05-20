@@ -5,9 +5,11 @@ from graphene.types.generic import GenericScalar
 from graphql import GraphQLResolveInfo
 
 from infrahub.core import registry
-from infrahub.core.convert_object_type.conversion import InputForDestField, convert_object_type
+from infrahub.core.constants.infrahubkind import READONLYREPOSITORY, REPOSITORY
+from infrahub.core.convert_object_type.object_conversion import InputForDestField, convert_object_type
+from infrahub.core.convert_object_type.repository_conversion import convert_repository_type
 from infrahub.core.manager import NodeManager
-from infrahub.core.repositories.create_repository import RepositoryPostCreator
+from infrahub.core.repositories.create_repository import RepositoryFinalizer
 
 if TYPE_CHECKING:
     from infrahub.graphql.initialization import GraphqlContext
@@ -49,18 +51,28 @@ class ConvertObjectType(Mutation):
             id=str(data.node_id), db=graphql_context.db, branch=str(data.branch)
         )
         target_schema = registry.get_node_schema(name=str(data.target_kind), branch=data.branch)
-        new_node = await convert_object_type(
-            node=node_to_convert,
-            target_schema=target_schema,
-            mapping=fields_mapping,
-            branch=graphql_context.branch,
-            db=graphql_context.db,
-            repository_post_creator=RepositoryPostCreator(
-                account_session=graphql_context.active_account_session,
-                services=graphql_context.active_service,
-                context=graphql_context.get_context(),
-            ),
-        )
+
+        if target_schema.kind in [REPOSITORY, READONLYREPOSITORY]:
+            new_node = await convert_repository_type(
+                node=node_to_convert,
+                target_schema=target_schema,
+                mapping=fields_mapping,
+                branch=graphql_context.branch,
+                db=graphql_context.db,
+                repository_post_creator=RepositoryFinalizer(
+                    account_session=graphql_context.active_account_session,
+                    services=graphql_context.active_service,
+                    context=graphql_context.get_context(),
+                ),
+            )
+        else:
+            new_node = await convert_object_type(
+                node=node_to_convert,
+                target_schema=target_schema,
+                mapping=fields_mapping,
+                branch=graphql_context.branch,
+                db=graphql_context.db,
+            )
 
         dict_node = await new_node.to_graphql(db=graphql_context.db, fields={})
         result: dict[str, Any] = {"ok": True, "node": dict_node}

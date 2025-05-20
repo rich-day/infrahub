@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 log = get_logger()
 
 
-class RepositoryPostCreator:
+class RepositoryFinalizer:
     def __init__(
         self,
         account_session: AccountSession,

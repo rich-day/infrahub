@@ -6,7 +6,11 @@ import pytest
 
 from infrahub.core import registry
 from infrahub.core.constants import RelationshipCardinality
-from infrahub.core.convert_object_type.conversion import InputDataForDestField, InputForDestField, convert_object_type
+from infrahub.core.convert_object_type.object_conversion import (
+    InputDataForDestField,
+    InputForDestField,
+    convert_object_type,
+)
 from infrahub.core.convert_object_type.schema_mapping import SchemaMappingValue, get_schema_mapping
 from infrahub.core.manager import NodeManager
 from infrahub.exceptions import NodeNotFoundError, ValidationError

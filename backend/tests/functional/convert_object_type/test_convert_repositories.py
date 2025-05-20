@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from infrahub.core.convert_object_type.conversion import InputDataForDestField, InputForDestField
+from infrahub.core.convert_object_type.object_conversion import InputDataForDestField, InputForDestField
 from infrahub.core.node import Node
 from infrahub.core.query.delete import DeleteAfterTimeQuery
 from infrahub.core.timestamp import Timestamp

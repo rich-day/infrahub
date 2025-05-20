@@ -5,13 +5,11 @@ from pydantic import BaseModel
 from infrahub.core.attribute import BaseAttribute
 from infrahub.core.branch import Branch
 from infrahub.core.constants import RelationshipCardinality
-from infrahub.core.constants.infrahubkind import READONLYREPOSITORY, REPOSITORY
 from infrahub.core.manager import NodeManager
 from infrahub.core.node import Node
 from infrahub.core.node.create import create_node
 from infrahub.core.query.relationship import GetAllPeersIds
 from infrahub.core.relationship import RelationshipManager
-from infrahub.core.repositories.create_repository import RepositoryPostCreator
 from infrahub.core.schema import NodeSchema
 from infrahub.database import InfrahubDatabase
 
@@ -95,7 +93,6 @@ async def convert_object_type(
     mapping: dict[str, InputForDestField],
     branch: Branch,
     db: InfrahubDatabase,
-    repository_post_creator: RepositoryPostCreator | None = None,
 ) -> Node:
     """Delete the node and return the new created one. If creation fails, the node is not deleted, and raise an error.
     An extra check is performed on input node peers relationships to make sure they are still valid."""
@@ -113,7 +110,6 @@ async def convert_object_type(
             raise ValueError(f"Deleted {len(deleted_nodes)} nodes instead of 1")
 
         data_new_node = await build_data_new_node(dbt, mapping, node)
-
         node_created = await create_node(
             data=data_new_node,
             db=dbt,
@@ -126,17 +122,5 @@ async def convert_object_type(
         peers = await NodeManager.get_many(ids=peers_ids, db=dbt, prefetch_relationships=True, branch=branch)
         for peer in peers.values():
             peer.validate_relationships()
-
-    # We can't apply post creation steps within above transaction as a sdk call tries to fetch the node
-    # created within the transaction from a different process, therefore that would not run within this transaction
-    # so the node ends up being not found
-    if target_schema.kind in [REPOSITORY, READONLYREPOSITORY]:
-        if repository_post_creator is None:
-            raise ValueError("repository_post_creator is required for repository conversion")
-        await repository_post_creator.post_create(
-            branch=branch,
-            obj=node_created,  # type: ignore
-            db=db,
-        )
 
     return node_created
