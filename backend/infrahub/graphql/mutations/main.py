@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from graphene import InputObjectType, Mutation
 from graphene.types.mutation import MutationOptions
-from infrahub_sdk.utils import extract_fields
+from infrahub_sdk.utils import extract_fields, extract_fields_first_node
 from typing_extensions import Self
 
 from infrahub import config, lock
@@ -413,7 +413,7 @@ def _get_data_fields(data: InputObjectType) -> list[str]:
 
 
 async def build_graphql_response(info: GraphQLResolveInfo, db: InfrahubDatabase, obj: Node) -> dict:
-    fields = await extract_fields(info.field_nodes[0].selection_set)
+    fields = await extract_fields_first_node(info)
     result: dict[str, Any] = {"ok": True}
     if "object" in fields:
         result["object"] = await obj.to_graphql(db=db, fields=fields.get("object", {}))

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from infrahub.core.constants import RepositoryInternalStatus
-from infrahub.core.constants.infrahubkind import READONLYREPOSITORY
+from infrahub.core.constants.infrahubkind import READONLYREPOSITORY, REPOSITORY
 from infrahub.core.protocols import CoreGenericRepository, CoreReadOnlyRepository, CoreRepository
 from infrahub.exceptions import ValidationError
 from infrahub.git.models import GitRepositoryAdd, GitRepositoryAddReadOnly
@@ -64,6 +64,7 @@ class RepositoryFinalizer:
         authenticated_user = None
         if self.account_session and self.account_session.authenticated:
             authenticated_user = self.account_session.account_id
+
         if obj.get_kind() == READONLYREPOSITORY:
             obj = cast(CoreReadOnlyRepository, obj)
             model = GitRepositoryAddReadOnly(
@@ -82,7 +83,7 @@ class RepositoryFinalizer:
                 parameters={"model": model},
             )
 
-        else:
+        elif obj.get_kind() == REPOSITORY:
             obj = cast(CoreRepository, obj)
             git_repo_add_model = GitRepositoryAdd(
                 repository_id=obj.id,
@@ -100,5 +101,5 @@ class RepositoryFinalizer:
                 context=self.context,
                 parameters={"model": git_repo_add_model},
             )
-
-        # TODO Validate that the creation of the repository went as expected
+        else:
+            raise ValueError(f"Unknown repository kind: {obj.get_kind()}")

@@ -2,9 +2,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from infrahub.core import registry
 from infrahub.core.attribute import BaseAttribute
 from infrahub.core.branch import Branch
-from infrahub.core.constants import RelationshipCardinality
+from infrahub.core.constants import GLOBAL_BRANCH_NAME, BranchSupportType, RelationshipCardinality
 from infrahub.core.manager import NodeManager
 from infrahub.core.node import Node
 from infrahub.core.node.create import create_node
@@ -87,6 +88,11 @@ async def get_unidirectional_rels_peers_ids(node: Node, branch: Branch, db: Infr
     return query.get_peers_uuids()
 
 
+async def _get_other_branches_opened(db: InfrahubDatabase) -> list[str]:
+    branches = await Branch.get_list(db=db)
+    return [branch.name for branch in branches if branch.name not in [registry.default_branch, GLOBAL_BRANCH_NAME]]
+
+
 async def convert_object_type(
     node: Node,
     target_schema: NodeSchema,
@@ -100,6 +106,21 @@ async def convert_object_type(
     node_schema = node.get_schema()
     if not isinstance(node_schema, NodeSchema):
         raise ValueError(f"Only a node with a NodeSchema can be converted, got {type(node_schema)}")
+
+    if target_schema.branch == BranchSupportType.AGNOSTIC:
+        if other_active_branches := await _get_other_branches_opened(db=db):
+            for attr in target_schema.attributes:
+                if attr.branch != BranchSupportType.AGNOSTIC:
+                    raise ValueError(
+                        f"Conversion target type cannot be branch agnostic with branch aware attributes "
+                        f"if other branches are opened: {other_active_branches}"
+                    )
+            for rel in target_schema.relationships:
+                if rel.branch != BranchSupportType.AGNOSTIC:
+                    raise ValueError(
+                        f"Conversion target type cannot be branch agnostic with branch aware relationships "
+                        f"if other branches are opened: {other_active_branches}"
+                    )
 
     async with db.start_transaction() as dbt:  # noqa: PLR1702
         deleted_node_out_rels_peer_ids = await get_out_rels_peers_ids(node=node, db=dbt)

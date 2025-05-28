@@ -137,6 +137,11 @@ class TestConvertRepository(TestInfrahubApp):
                         "source_field_name": "generators",
                         "relationship_cardinality": "many",
                     },
+                    "groups_objects": {
+                        "is_mandatory": False,
+                        "source_field_name": "groups_objects",
+                        "relationship_cardinality": "many",
+                    },
                     "member_of_groups": {
                         "is_mandatory": False,
                         "source_field_name": "member_of_groups",
@@ -153,11 +158,12 @@ class TestConvertRepository(TestInfrahubApp):
 
         # Create a repository and convert it to read only
 
-        client_repository = await client.create(
-            kind=InfrahubKind.REPOSITORY,
-            data={"name": "car-dealership", "location": f"{git_repos_source_dir_module_scope}/car-dealership"},
-        )
-        await client_repository.save()
+        with patch("infrahub.git.tasks.lock"):
+            client_repository = await client.create(
+                kind=InfrahubKind.REPOSITORY,
+                data={"name": "car-dealership", "location": f"{git_repos_source_dir_module_scope}/car-dealership"},
+            )
+            await client_repository.save()
 
         repository: CoreRepository = await NodeManager.get_one(
             db=db, id=client_repository.id, kind=InfrahubKind.REPOSITORY, raise_on_error=True
@@ -191,15 +197,16 @@ class TestConvertRepository(TestInfrahubApp):
         mapping["ref"] = InputForDestField(data=InputDataForDestField(attribute_value=repository.commit.value))
         mapping_dict = {field_name: model.model_dump(mode="json") for field_name, model in mapping.items()}
 
-        conversion_response = await client.execute_graphql(
-            query=query,
-            variables={
-                "branch": default_branch.name,
-                "node_id": str(repository.id),
-                "fields_mapping": mapping_dict,
-                "target_kind": "CoreReadOnlyRepository",
-            },
-        )
+        with patch("infrahub.git.tasks.lock"):
+            conversion_response = await client.execute_graphql(
+                query=query,
+                variables={
+                    "branch": default_branch.name,
+                    "node_id": str(repository.id),
+                    "fields_mapping": mapping_dict,
+                    "target_kind": "CoreReadOnlyRepository",
+                },
+            )
         assert conversion_response["ConvertObjectType"]["ok"] is True
         res_node = conversion_response["ConvertObjectType"]["node"]
         assert res_node["__kind__"] == "CoreReadOnlyRepository"
@@ -218,8 +225,16 @@ class TestConvertRepository(TestInfrahubApp):
             infrahub_branch_name=default_branch.name,
             service=service,
         )
-
         repo_intern.validate_local_directories()
+
+        # Make sure old repository groups has been deleted
+        for old_repo_group in (await repository.groups_objects.get_peers(db=db)).values():
+            res = await NodeManager.get_one(
+                db=db,
+                id=old_repo_group.id,
+                kind=InfrahubKind.REPOSITORYGROUP,
+            )
+            assert res is None
 
         query_delete = await DeleteAfterTimeQuery.init(db=db, timestamp=start_time)
         await query_delete.execute(db=db)
@@ -319,6 +334,11 @@ class TestConvertRepository(TestInfrahubApp):
                         "source_field_name": "generators",
                         "relationship_cardinality": "many",
                     },
+                    "groups_objects": {
+                        "is_mandatory": False,
+                        "source_field_name": "groups_objects",
+                        "relationship_cardinality": "many",
+                    },
                     "member_of_groups": {
                         "is_mandatory": False,
                         "source_field_name": "member_of_groups",
@@ -375,15 +395,16 @@ class TestConvertRepository(TestInfrahubApp):
         mapping["default_branch"] = InputForDestField(data=InputDataForDestField(attribute_value=default_branch.name))
         mapping_dict = {field_name: model.model_dump(mode="json") for field_name, model in mapping.items()}
 
-        conversion_response = await client.execute_graphql(
-            query=query,
-            variables={
-                "branch": default_branch.name,
-                "node_id": str(repository.id),
-                "fields_mapping": mapping_dict,
-                "target_kind": "CoreRepository",
-            },
-        )
+        with patch("infrahub.git.tasks.lock"):
+            conversion_response = await client.execute_graphql(
+                query=query,
+                variables={
+                    "branch": default_branch.name,
+                    "node_id": str(repository.id),
+                    "fields_mapping": mapping_dict,
+                    "target_kind": "CoreRepository",
+                },
+            )
 
         assert conversion_response["ConvertObjectType"]["ok"] is True
         res_node = conversion_response["ConvertObjectType"]["node"]
@@ -405,6 +426,15 @@ class TestConvertRepository(TestInfrahubApp):
         )
 
         repo_intern.validate_local_directories()
+
+        # Make sure old repository groups has been deleted
+        for old_repo_group in (await repository.groups_objects.get_peers(db=db)).values():
+            res = await NodeManager.get_one(
+                db=db,
+                id=old_repo_group.id,
+                kind=InfrahubKind.REPOSITORYGROUP,
+            )
+            assert res is None
 
         query_delete = await DeleteAfterTimeQuery.init(db=db, timestamp=start_time)
         await query_delete.execute(db=db)

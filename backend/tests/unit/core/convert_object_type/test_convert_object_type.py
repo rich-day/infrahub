@@ -12,6 +12,7 @@ from infrahub.core.convert_object_type.object_conversion import (
     convert_object_type,
 )
 from infrahub.core.convert_object_type.schema_mapping import SchemaMappingValue, get_schema_mapping
+from infrahub.core.initialization import create_branch
 from infrahub.core.manager import NodeManager
 from infrahub.exceptions import NodeNotFoundError, ValidationError
 from tests.helpers.test_app import TestInfrahubApp
@@ -284,3 +285,82 @@ class TestConvertObjectType(TestInfrahubApp):
         assert jack_2.name_agnostic.value == jack_1.name_agnostic.value
         assert jack_2.height_2_agnostic.value == jack_1.height_1_aware.value
         assert jack_2.age_2_aware.value == jack_1.age_1_agnostic.value
+
+    # TODO both below tests are failing when ran in a test suite as other branches are opened in previous tests
+
+    async def test_agnostic_node_with_aware_attributes(
+        self,
+        db: InfrahubDatabase,
+        client: InfrahubClient,
+        schema_conversion_agnostic_node_with_aware_attributes,
+        default_branch,
+        service,
+    ) -> None:
+        res = await client.schema.load(
+            schemas=[schema_conversion_agnostic_node_with_aware_attributes], branch=default_branch.name
+        )
+        assert len(res.errors) == 0, res.errors
+
+        jack_1 = await create_and_save(
+            db=db,
+            schema="TestaaPerson1",
+            name_agnostic="Jack",
+            age_aware=25,
+        )
+
+        mapping = {
+            "name_agnostic": InputForDestField(source_field="name_agnostic"),
+            "age_aware": InputForDestField(source_field="age_aware"),
+        }
+
+        person_2_schema = registry.get_node_schema(name="TestaaPerson2", branch=default_branch)
+        jack_2 = await convert_object_type(
+            node=jack_1,
+            target_schema=person_2_schema,
+            mapping=mapping,
+            db=db,
+            branch=default_branch,
+        )
+
+        assert jack_2 is not None
+        assert jack_2.name_agnostic.value == jack_1.name_agnostic.value
+        assert jack_2.age_aware.value == jack_1.age_aware.value
+
+    async def test_agnostic_node_with_aware_attributes_raise_on_existing_branches(
+        self,
+        db: InfrahubDatabase,
+        client: InfrahubClient,
+        schema_conversion_agnostic_node_with_aware_attributes,
+        default_branch,
+    ) -> None:
+        res = await client.schema.load(
+            schemas=[schema_conversion_agnostic_node_with_aware_attributes], branch=default_branch.name
+        )
+        assert len(res.errors) == 0, res.errors
+
+        _ = await create_branch(branch_name="branch_convert_type", db=db)
+
+        jack_1 = await create_and_save(
+            db=db,
+            schema="TestaaPerson1",
+            name_agnostic="Jack",
+            age_aware=25,
+        )
+
+        mapping = {
+            "name_agnostic": InputForDestField(source_field="name_agnostic"),
+            "age_aware": InputForDestField(source_field="age_aware"),
+        }
+
+        person_2_schema = registry.get_node_schema(name="TestaaPerson2", branch=default_branch)
+        with pytest.raises(
+            ValueError,
+            match=r"Conversion target type cannot be branch agnostic with branch aware attributes if other branches are opened: \['branch_2'\]",
+        ):
+            _ = await convert_object_type(
+                node=jack_1,
+                target_schema=person_2_schema,
+                mapping=mapping,
+                db=db,
+                branch=default_branch,
+            )

@@ -1452,6 +1452,63 @@ async def schema_conversion_aware_agnostic(db: InfrahubDatabase, node_group_sche
 
 
 @pytest.fixture
+async def schema_conversion_agnostic_node_with_aware_attributes(
+    db: InfrahubDatabase, node_group_schema, data_schema
+) -> dict:
+    schema: dict[str, Any] = {
+        "version": "1.0",
+        "generics": [
+            {
+                "name": "PersonGeneric",
+                "namespace": "Testaa",
+                "human_friendly_id": ["name_agnostic__value"],
+                "branch": BranchSupportType.AGNOSTIC.value,
+                "attributes": [
+                    {
+                        "name": "name_agnostic",
+                        "kind": "Text",
+                        "unique": True,
+                        "branch": BranchSupportType.AGNOSTIC.value,
+                    },
+                ],
+            },
+        ],
+        "nodes": [
+            {
+                "name": "Person1",
+                "namespace": "Testaa",
+                "inherit_from": ["TestaaPersonGeneric"],
+                "branch": BranchSupportType.AGNOSTIC.value,
+                "attributes": [
+                    {
+                        "name": "age_aware",
+                        "kind": "Number",
+                        "unique": True,
+                        "branch": BranchSupportType.AWARE.value,
+                    },
+                ],
+            },
+            {
+                "name": "Person2",
+                "namespace": "Testaa",
+                "branch": BranchSupportType.AGNOSTIC.value,
+                "inherit_from": ["TestaaPersonGeneric"],
+                "attributes": [
+                    {
+                        "name": "age_aware",
+                        "kind": "Number",
+                        "unique": True,
+                        "branch": BranchSupportType.AWARE.value,
+                    },
+                ],
+            },
+        ],
+    }
+
+    return schema
+
+
+@pytest.fixture
 async def schema_conversion_unidirectional_relationships(db: InfrahubDatabase, node_group_schema, data_schema) -> dict:
     schema: dict[str, Any] = {
         "version": "1.0",
