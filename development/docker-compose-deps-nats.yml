@@ -50,6 +50,7 @@ services:
       PREFECT_MESSAGING_CACHE: prefect_redis.messaging
       PREFECT_REDIS_MESSAGING_HOST: "${INFRAHUB_CACHE_ADDRESS:-cache}"
       PREFECT_REDIS_MESSAGING_DB: "1"
+      PREFECT_REDIS_MESSAGING_CONSUMER_MIN_IDLE_TIME: "30"
       WEB_CONCURRENCY: ${TASK_MANAGER_API_WORKERS:-2}
     healthcheck:
       test: /usr/local/bin/httpx http://localhost:4200/api/health || exit 1
@@ -79,6 +80,7 @@ services:
       PREFECT_MESSAGING_CACHE: prefect_redis.messaging
       PREFECT_REDIS_MESSAGING_HOST: "${INFRAHUB_CACHE_ADDRESS:-cache}"
       PREFECT_REDIS_MESSAGING_DB: "1"
+      PREFECT_REDIS_MESSAGING_CONSUMER_MIN_IDLE_TIME: "30"
     depends_on:
       task-manager:
         condition: service_healthy
